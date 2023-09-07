@@ -1,0 +1,159 @@
+---
+title: "Food Web Model Risk Indicators"
+format: html
+---
+
+```{r setup}
+#| echo: false  
+library(tidyverse)
+library(Rpath)
+```
+
+
+## Overview
+
+We want to develop indicators of prey availability and predation pressure for the Mid-Atlantic EAFM risk assessment. We will use the MAB Rpath model by Brandon Beltz to characterize diet composition and predation mortality for fish species managed by the Mid Atlantic Fishery Management Council (MAFMC). 
+
+The current ecological risk elements are outlined below. 
+
+### Food web: Prey availability
+
+This element is applied at the species level. 
+
+Fish stocks and protected species stocks are managed using single species approaches, but fish and protected species stocks exist within a food web of predator and prey interactions. This element is one of two separating food web risks to achieving OY for Council managed species from two sources. This first element assesses prey availability for each species, and the second food web risk element assesses predation pressure on each species (see next element). 
+  
+Proposed definition:
+
+Risk of not achieving OY for Council managed species due to availability of prey.
+
+Indicators:
+  
+Indicators of prey availability for each Council managed species could be based on food habits information for the Council managed species combined with population trends for key prey species (if available). Prey could include all species (Council managed, other-managed, and non-managed) or a subset as determined by the EOP and Council. 
+
+The MAB Rpath model was used to characterize prey into groups for each of the Council managed species.
+
+Diet plots for each predator? Compare with diet comp from NEFSC diet database [here](https://fwdp.shinyapps.io/tm2020/)?
+
+Ratio of council managed prey to total prey?
+
+Alternative indirect indicators of prey availability could include the fish condition indicators from the State of the Ecosystem report (shown below under Ecosystem Productivity). These would not rely on detailed diet information, instead reflecting the impact of environmental drivers including prey availability on fish growth.
+
+Diet information was gathered from the Northeast Fisheries Science Center (NEFSC) food habits database and other sources [@smith_trophic_2010; @johnson_growth_2008].  
+
+Potential risk criteria:
+ 
+```{r riskfw1, echo=FALSE, message=FALSE, warnings=FALSE, results='asis'}
+tabl <- "
+| Risk Level         | Definition                                                          |  
+|:-------------------|:--------------------------------------------------------------------|
+| Low  | Prey availability high (not limiting) and/or good fish condition past 5 years |
+| Low-Moderate | Aggregate prey available for this species has stable or increasing trend, moderate condition |
+| Moderate-High | Aggregate prey available for this species has significant decreasing trend, poor condition |
+| High | Managed species highly dependent on prey with limited and declining availability, poor condition |
+"
+cat(tabl) # output the table in a format good for HTML/PDF/docx conversion
+```
+
+ 
+\newpage 
+
+### Food web: Predation pressure
+
+This element is applied at the species level.
+
+Fish stocks and protected species stocks are managed using single species approaches, but fish and protected species stocks exist within a food web of predator and prey interactions. This element is one of two separating food web risks to achieving OY for Council managed species from two sources. This second food web risk element assesses predation pressure on each species, and the first element assesses prey availability for each species (see element above). 
+
+  
+Proposed definition:
+
+Risk of not achieving OY for Council managed species due to predation pressure.
+
+Indicators:
+
+Indicators of predation pressure on a Council managed species could be based on food habits information for predators of the species combined with key predator trends. This could be derived from empirical information or food web/multispecies models. Predators could include all species (protected, HMS, Council managed, other-managed, and unmanaged) or a subset as determined by the EOP and Council. 
+
+Mortality plots for each species from Rpath? Compare with index of predation from [Richards, R.A., Jacobson, L.D., 2016. A simple predation pressure index for modeling changes in natural mortality: Application to Gulf of Maine northern shrimp stock assessment. Fisheries Research 179, 224–236. https://doi.org/10.1016/j.fishres.2016.03.003](https://www.sciencedirect.com/science/article/abs/pii/S0165783616300595)
+
+Ratio of Council managed predators to total predators (proportion of mortality)?
+
+Potential risk criteria:  
+```{r riskfw11, echo=FALSE, message=FALSE, warnings=FALSE, results='asis'}
+tabl <- "
+| Risk Level         | Definition                                                          |  
+|:-------------------|:--------------------------------------------------------------------|
+| Low  | Predation pressure represents low proportion of overall mortality|
+| Low-Moderate | Predation pressure moderate proportion of overall mortality, decreasing mortality trend |
+| Moderate-High | Predation pressure moderate proportion of overall mortality, increasing mortality trend|
+| High | Predation pressure represents high proportion of overall mortality, increasing mortality trend |
+"
+cat(tabl) # output the table in a format good for HTML/PDF/docx conversion
+```
+
+ 
+\newpage 
+
+## Rpath Outputs
+
+Indicators from models will be EPU specific since models are EPU specific
+
+Indicators from NEFSC diet data can also be region specific
+
+Steps:
+Load model
+
+```{r}
+load("fwmods/MAB Rpath - BALANCED - July 2022.RData")
+```
+
+Is it in? Test view
+
+```{r, fig.asp=1}
+Rpath::webplot(MAB.rpath, labels = T, highlight = "SummerFlounder")
+```
+
+
+Select MAFMC managed species
+
+```{r}
+
+# or use existing ecodata lookup if names are the same?
+
+mafmc <- c("AtlMackerel",
+           "BlackSeaBass",
+           "Bluefish",
+           "Butterfish",
+           "Goosefish",
+           "Illex",
+           "Loligo",
+           "Scup",
+           "SpinyDogfish",
+           "SummerFlounder")#,
+           #"Clams", # Atlantic surfclam and ocean quahog not separate groups
+           #"Tilefish") # Blueline and golden tilefish not separate groups
+
+mafmc2 <- ecodata::species_groupings |>
+  dplyr::filter(Fed.Managed %in% c("MAFMC", "JOINT")) |>
+  dplyr::select(COMNAME, SVSPP, SCINAME, Fed.Managed, RPATH, SOE.20) |>
+  dplyr::distinct()
+
+```
+
+Visualize prey compositions
+
+```{r}
+
+MAFMCmoddiet <- MAB.rpath.params$diet |>
+  as.data.frame() |>
+  dplyr::select(Group, all_of(mafmc))
+
+MAFMCdiet <- 
+
+```
+
+Visualize predation mortality compositions
+
+```{r}
+
+```
+
+
