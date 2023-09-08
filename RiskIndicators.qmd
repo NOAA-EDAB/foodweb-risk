@@ -7,6 +7,7 @@ format: html
 #| echo: false  
 library(tidyverse)
 library(Rpath)
+library(viridis)
 ```
 
 
@@ -138,15 +139,40 @@ mafmc2 <- ecodata::species_groupings |>
 
 ```
 
-Visualize prey compositions
+Visualize prey compositions (lots of aggregate groups)
 
-```{r}
+```{r, fig.width=10}
 
 MAFMCmoddiet <- MAB.rpath.params$diet |>
   as.data.frame() |>
-  dplyr::select(Group, all_of(mafmc))
+  dplyr::select(Prey=Group, all_of(mafmc)) |>
+  na.omit() |>
+  tidyr::pivot_longer(-Prey, names_to = "Predator", values_to = "Propdiet") |>
+  dplyr::mutate(mafmcprey = ifelse(Prey %in% mafmc, TRUE, FALSE),
+                plotcol = ifelse(mafmcprey, "blue", "lightgrey"))
 
-MAFMCdiet <- 
+
+
+dietplot <- ggplot(MAFMCmoddiet, aes("", Propdiet, fill=mafmcprey)) +
+    geom_bar(width = 1, size = 1, color = "white", stat = "identity") +
+    #coord_polar("y") +
+    geom_text(aes(label = ifelse( Propdiet>0.05, paste0(Prey, " ", round(Propdiet*100), "%"), "")), #\n
+              position = position_stack(vjust = 0.5),
+              size=3) +
+    labs(x = NULL, y = NULL, fill = NULL, 
+         title = "Diet") +
+    guides(fill = guide_legend(reverse = TRUE)) +
+    scale_fill_manual(values=c( "grey90", "lightblue")) +
+    #scale_fill_viridis(discrete=TRUE) +
+    theme_classic() +
+    theme(axis.line = element_blank(),
+          axis.text = element_blank(),
+          axis.ticks = element_blank(),
+          plot.title = element_text(hjust = 0.5, color = "#666666"),
+          legend.position="none") +
+    facet_wrap(~Predator)
+
+dietplot
 
 ```
 
