@@ -542,3 +542,39 @@ mafmcmort <- purrr::map_dfr(mafmc, sppmort)
 
 ```
 
+Mort plot
+
+```{r, fig.width=10}
+
+MAFMCmodmort <- mafmcmort |>
+  as.data.frame() |>
+  na.omit() |>
+  #split variable to get predator name
+  #convert value to proportion of total mort
+  dplyr::mutate(mafmcpred = ifelse(Pred %in% mafmc, TRUE, FALSE),
+                plotcol = ifelse(mafmcprey, "blue", "lightgrey"))
+
+
+
+dietplot <- ggplot(MAFMCmodmort, aes("", value, fill=mafmcpred)) +
+    geom_bar(width = 1, size = 1, color = "white", stat = "identity") +
+    #coord_polar("y") +
+    geom_text(aes(label = ifelse( Propdiet>0.05, paste0(Prey, " ", round(Propdiet*100), "%"), "")), #\n
+              position = position_stack(vjust = 0.5),
+              size=3) +
+    labs(x = NULL, y = NULL, fill = NULL, 
+         title = "Diet") +
+    guides(fill = guide_legend(reverse = TRUE)) +
+    scale_fill_manual(values=c( "grey90", "lightblue")) +
+    #scale_fill_viridis(discrete=TRUE) +
+    theme_classic() +
+    theme(axis.line = element_blank(),
+          axis.text = element_blank(),
+          axis.ticks = element_blank(),
+          plot.title = element_text(hjust = 0.5, color = "#666666"),
+          legend.position="none") +
+    facet_wrap(~Predator)
+
+dietplot
+
+```
