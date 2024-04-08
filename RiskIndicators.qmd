@@ -10,6 +10,7 @@ format:
 library(tidyverse)
 library(Rpath)
 library(viridis)
+library(data.table)
 ```
 
 
@@ -104,8 +105,20 @@ Indicators from NEFSC diet data can also be region specific
 Steps:
 Load model
 
+Get the new model that Sarah revised from here
+
+https://github.com/Nyelab/MAB-Rpath/blob/balance_prep/outputs/MAB_Rpath.RData
+
+and 
+
+https://github.com/Nyelab/MAB-Rpath/blob/balance_prep/outputs/MAB_params_Rpath.RData
+
 ```{r}
-load("fwmods/MAB Rpath - BALANCED - July 2022.RData")
+
+#load("fwmods/MAB Rpath - BALANCED - July 2022.RData")
+
+load("fwmods/MAB_Rpath.RData")
+load("fwmods/MAB_params_Rpath.RData")
 ```
 
 Is it in? Test view
@@ -145,6 +158,7 @@ Visualize prey compositions (lots of aggregate groups)
 
 ```{r, fig.width=10, fig.asp=1}
 
+
 MAFMCmoddiet <- MAB.rpath.params$diet |>
   as.data.frame() |>
   dplyr::select(Prey=Group, all_of(mafmc)) |>
@@ -182,7 +196,7 @@ Visualize predation mortality compositions
 
 Sean's prebal functions, from [GBRpath repo](https://github.com/NOAA-EDAB/GBRpath/blob/master/R/PreBal.R). These allow us to track predation mortality by species efficiently. 
 
-```{r}
+```{r, eval=FALSE}
 #Pre-balance functions
 #SML
 
@@ -521,12 +535,23 @@ slopePlot <- function(rpath.obj, type = 'Biomass', group = NA, ref = F){
 
 ```
 
-Estimate mortality by MAFMC species
+Estimate mortality by MAFMC species with modified function that keeps M0
 
 ```{r}
+
+check.mort <- function(rpath.obj, group){
+  model.out <- data.table::as.data.table(Rpath::write.Rpath(rpath.obj, morts = T))
+  group.mort <- model.out[Group == group]
+  out <- data.table::melt(group.mort, id.vars = 'Group')
+  out <- setorder(out[value != 0 & !variable %in% c('PB'), ], -value)
+  return(out)
+}
+
+
 fluke <- check.mort(MAB.rpath, "SummerFlounder") |>
   dplyr::mutate(type = dplyr::case_when(stringr::str_starts(as.character(variable), "\\M2.\\b") ~ "predation",
                                         stringr::str_detect(as.character(variable), "\\bOther\\b") ~ "other",
+                                        stringr::str_detect(as.character(variable), "\\bM0\\b") ~ "unaccounted",
                                         TRUE ~ "fishery")
                                         )
 
@@ -536,6 +561,7 @@ sppmort <- function(spp){
   check.mort(MAB.rpath, spp) |>
   dplyr::mutate(type = dplyr::case_when(stringr::str_starts(as.character(variable), "\\M2.\\b") ~ "predation",
                                         stringr::str_detect(as.character(variable), "\\bOther\\b") ~ "other",
+                                        stringr::str_detect(as.character(variable), "\\bM0\\b") ~ "unaccounted",
                                         TRUE ~ "fishery")
                                         )
 }
