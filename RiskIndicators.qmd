@@ -1,6 +1,8 @@
 ---
 title: "Food Web Model Risk Indicators"
-format: html
+format: 
+  html:
+    code-fold: true
 ---
 
 ```{r setup}
@@ -141,7 +143,7 @@ mafmc2 <- ecodata::species_groupings |>
 
 Visualize prey compositions (lots of aggregate groups)
 
-```{r, fig.width=10}
+```{r, fig.width=10, fig.asp=1}
 
 MAFMCmoddiet <- MAB.rpath.params$diet |>
   as.data.frame() |>
@@ -544,26 +546,33 @@ mafmcmort <- purrr::map_dfr(mafmc, sppmort)
 
 Mort plot
 
-```{r, fig.width=10}
+```{r, fig.width=10, fig.asp=1}
 
 MAFMCmodmort <- mafmcmort |>
   as.data.frame() |>
   na.omit() |>
-  #split variable to get predator name
   #convert value to proportion of total mort
+  dplyr::group_by(Group) |>
+  dplyr::mutate(propmort = value/ sum(value)) |>
+  #dplyr::filter(type=="predation") |>
+  #split variable to get predator name
+  tidyr::separate_wider_delim(variable, ".",
+                              names = c("mort", "Pred"),
+                              too_few = "align_start") |>
   dplyr::mutate(mafmcpred = ifelse(Pred %in% mafmc, TRUE, FALSE),
-                plotcol = ifelse(mafmcprey, "blue", "lightgrey"))
+                plotcol = ifelse(mafmcpred, "blue", "lightgrey"),
+                Pred = ifelse(is.na(Pred), mort, Pred))
 
 
 
-dietplot <- ggplot(MAFMCmodmort, aes("", value, fill=mafmcpred)) +
+mortplot <- ggplot(MAFMCmodmort, aes("", propmort, fill=mafmcpred)) +
     geom_bar(width = 1, size = 1, color = "white", stat = "identity") +
     #coord_polar("y") +
-    geom_text(aes(label = ifelse( Propdiet>0.05, paste0(Prey, " ", round(Propdiet*100), "%"), "")), #\n
+    geom_text(aes(label = ifelse( propmort>0.05, paste0(Pred, " ", round(propmort*100), "%"), "")), #\n
               position = position_stack(vjust = 0.5),
               size=3) +
     labs(x = NULL, y = NULL, fill = NULL, 
-         title = "Diet") +
+         title = "Mortality") +
     guides(fill = guide_legend(reverse = TRUE)) +
     scale_fill_manual(values=c( "grey90", "lightblue")) +
     #scale_fill_viridis(discrete=TRUE) +
@@ -573,8 +582,8 @@ dietplot <- ggplot(MAFMCmodmort, aes("", value, fill=mafmcpred)) +
           axis.ticks = element_blank(),
           plot.title = element_text(hjust = 0.5, color = "#666666"),
           legend.position="none") +
-    facet_wrap(~Predator)
+    facet_wrap(~Group)
 
-dietplot
+mortplot
 
 ```
