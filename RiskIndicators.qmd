@@ -13,26 +13,25 @@ library(viridis)
 library(data.table)
 ```
 
-
 ## Overview
 
-We want to develop indicators of prey availability and predation pressure for the Mid-Atlantic EAFM risk assessment. We will use the MAB Rpath model by Brandon Beltz to characterize diet composition and predation mortality for fish species managed by the Mid Atlantic Fishery Management Council (MAFMC). 
+We want to develop indicators of prey availability and predation pressure for the Mid-Atlantic EAFM risk assessment. We will use the MAB Rpath model by Brandon Beltz to characterize diet composition and predation mortality for fish species managed by the Mid Atlantic Fishery Management Council (MAFMC).
 
-The current ecological risk elements are outlined below. 
+The current ecological risk elements are outlined below.
 
 ### Food web: Prey availability
 
-This element is applied at the species level. 
+This element is applied at the species level.
 
-Fish stocks and protected species stocks are managed using single species approaches, but fish and protected species stocks exist within a food web of predator and prey interactions. This element is one of two separating food web risks to achieving OY for Council managed species from two sources. This first element assesses prey availability for each species, and the second food web risk element assesses predation pressure on each species (see next element). 
-  
+Fish stocks and protected species stocks are managed using single species approaches, but fish and protected species stocks exist within a food web of predator and prey interactions. This element is one of two separating food web risks to achieving OY for Council managed species from two sources. This first element assesses prey availability for each species, and the second food web risk element assesses predation pressure on each species (see next element).
+
 Proposed definition:
 
 Risk of not achieving OY for Council managed species due to availability of prey.
 
 Indicators:
-  
-Indicators of prey availability for each Council managed species could be based on food habits information for the Council managed species combined with population trends for key prey species (if available). Prey could include all species (Council managed, other-managed, and non-managed) or a subset as determined by the EOP and Council. 
+
+Indicators of prey availability for each Council managed species could be based on food habits information for the Council managed species combined with population trends for key prey species (if available). Prey could include all species (Council managed, other-managed, and non-managed) or a subset as determined by the EOP and Council.
 
 The MAB Rpath model was used to characterize prey into groups for each of the Council managed species.
 
@@ -42,10 +41,10 @@ Ratio of council managed prey to total prey?
 
 Alternative indirect indicators of prey availability could include the fish condition indicators from the State of the Ecosystem report (shown below under Ecosystem Productivity). These would not rely on detailed diet information, instead reflecting the impact of environmental drivers including prey availability on fish growth.
 
-Diet information was gathered from the Northeast Fisheries Science Center (NEFSC) food habits database and other sources [@smith_trophic_2010; @johnson_growth_2008].  
+Diet information was gathered from the Northeast Fisheries Science Center (NEFSC) food habits database and other sources [@smith_trophic_2010; @johnson_growth_2008].
 
 Potential risk criteria:
- 
+
 ```{r riskfw1, echo=FALSE, message=FALSE, warnings=FALSE, results='asis'}
 tabl <- "
 | Risk Level         | Definition                                                          |  
@@ -58,29 +57,28 @@ tabl <- "
 cat(tabl) # output the table in a format good for HTML/PDF/docx conversion
 ```
 
- 
-\newpage 
+\newpage
 
 ### Food web: Predation pressure
 
 This element is applied at the species level.
 
-Fish stocks and protected species stocks are managed using single species approaches, but fish and protected species stocks exist within a food web of predator and prey interactions. This element is one of two separating food web risks to achieving OY for Council managed species from two sources. This second food web risk element assesses predation pressure on each species, and the first element assesses prey availability for each species (see element above). 
+Fish stocks and protected species stocks are managed using single species approaches, but fish and protected species stocks exist within a food web of predator and prey interactions. This element is one of two separating food web risks to achieving OY for Council managed species from two sources. This second food web risk element assesses predation pressure on each species, and the first element assesses prey availability for each species (see element above).
 
-  
 Proposed definition:
 
 Risk of not achieving OY for Council managed species due to predation pressure.
 
 Indicators:
 
-Indicators of predation pressure on a Council managed species could be based on food habits information for predators of the species combined with key predator trends. This could be derived from empirical information or food web/multispecies models. Predators could include all species (protected, HMS, Council managed, other-managed, and unmanaged) or a subset as determined by the EOP and Council. 
+Indicators of predation pressure on a Council managed species could be based on food habits information for predators of the species combined with key predator trends. This could be derived from empirical information or food web/multispecies models. Predators could include all species (protected, HMS, Council managed, other-managed, and unmanaged) or a subset as determined by the EOP and Council.
 
 Mortality plots for each species from Rpath? Compare with index of predation from [Richards, R.A., Jacobson, L.D., 2016. A simple predation pressure index for modeling changes in natural mortality: Application to Gulf of Maine northern shrimp stock assessment. Fisheries Research 179, 224–236. https://doi.org/10.1016/j.fishres.2016.03.003](https://www.sciencedirect.com/science/article/abs/pii/S0165783616300595)
 
 Ratio of Council managed predators to total predators (proportion of mortality)?
 
-Potential risk criteria:  
+Potential risk criteria:
+
 ```{r riskfw11, echo=FALSE, message=FALSE, warnings=FALSE, results='asis'}
 tabl <- "
 | Risk Level         | Definition                                                          |  
@@ -93,8 +91,7 @@ tabl <- "
 cat(tabl) # output the table in a format good for HTML/PDF/docx conversion
 ```
 
- 
-\newpage 
+\newpage
 
 ## Rpath Outputs
 
@@ -102,29 +99,44 @@ Indicators from models will be EPU specific since models are EPU specific
 
 Indicators from NEFSC diet data can also be region specific
 
-Steps:
-Load model
+Steps: Load model
 
 Get the new model that Sarah revised from here
 
 https://github.com/Nyelab/MAB-Rpath/blob/balance_prep/outputs/MAB_Rpath.RData
 
-and 
+and
 
 https://github.com/Nyelab/MAB-Rpath/blob/balance_prep/outputs/MAB_params_Rpath.RData
+
+Correction! July 2024
+
+New model is at `git@github.com:Nyelab/MAB-Rpath.git` branch `max_clam_edits`
+
+New model is now in local directory for this repo
 
 ```{r}
 
 #load("fwmods/MAB Rpath - BALANCED - July 2022.RData")
 
-load("fwmods/MAB_Rpath.RData")
-load("fwmods/MAB_params_Rpath.RData")
+#load("fwmods/MAB_Rpath.RData")
+#load("fwmods/MAB_params_Rpath.RData")
+
+load("fwmods/MAB_Rpath_no_disc.RData")
+load("fwmods/MAB_params_Rpath_no_disc.RData")
 ```
 
 Is it in? Test view
 
 ```{r, fig.asp=1}
 Rpath::webplot(MAB.rpath, labels = T, highlight = "SummerFlounder")
+```
+
+Model parameters
+
+```{r}
+
+DT::datatable(MAB.rpath.params$model)
 ```
 
 
@@ -143,7 +155,9 @@ mafmc <- c("AtlMackerel",
            "Loligo",
            "Scup",
            "SpinyDogfish",
-           "SummerFlounder")#,
+           "SummerFlounder",
+           "SurfClam",
+           "OceanQuahog")#,
            #"Clams", # Atlantic surfclam and ocean quahog not separate groups
            #"Tilefish") # Blueline and golden tilefish not separate groups
 
@@ -194,7 +208,7 @@ dietplot
 
 Visualize predation mortality compositions
 
-Sean's prebal functions, from [GBRpath repo](https://github.com/NOAA-EDAB/GBRpath/blob/master/R/PreBal.R). These allow us to track predation mortality by species efficiently. 
+Sean's prebal functions, from [GBRpath repo](https://github.com/NOAA-EDAB/GBRpath/blob/master/R/PreBal.R). These allow us to track predation mortality by species efficiently.
 
 ```{r, eval=FALSE}
 #Pre-balance functions
@@ -579,7 +593,8 @@ MAFMCmodmort <- mafmcmort |>
   na.omit() |>
   #convert value to proportion of total mort
   dplyr::group_by(Group) |>
-  dplyr::mutate(propmort = value/ sum(value)) |>
+  dplyr::mutate(totmort = sum(value),
+                propmort = value/ totmort) |>
   #dplyr::filter(type=="predation") |>
   #split variable to get predator name
   tidyr::separate_wider_delim(variable, ".",
