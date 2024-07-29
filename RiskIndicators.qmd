@@ -710,8 +710,28 @@ macroprey <- fallmacro |>
   dplyr::filter(EPU %in% c("MAB", "GB", "GOM"),
                 str_detect(Var, "Fall "),
                 !str_detect(Var, "SE")) 
+
+ggplot2::ggplot() +
+  ggplot2::theme_bw() +
+  ggplot2::geom_point(data=macroprey, ggplot2::aes(x=Time, y=Value)) +
+  ggplot2::facet_grid(~factor(EPU, levels = c("MAB", "GB", "GOM")))
 ```
 
+Megabenthos
+
+```{r}
+fallmega <- readRDS(here::here("preyindices/fallmegabenthosindex.rds"))
+
+megaprey <- fallmega |>
+  dplyr::filter(EPU %in% c("MAB", "GB", "GOM"),
+                str_detect(Var, "Fall "),
+                !str_detect(Var, "SE")) 
+
+ggplot2::ggplot() +
+  ggplot2::theme_bw() +
+  ggplot2::geom_point(data=megaprey, ggplot2::aes(x=Time, y=Value)) +
+  ggplot2::facet_grid(~factor(EPU, levels = c("MAB", "GB", "GOM")))
+```
 
 Small copeopods
 
@@ -722,6 +742,11 @@ smcopeprey <- fallsmcope |>
   dplyr::filter(EPU %in% c("MAB", "GB", "GOM"),
                 str_detect(Var, "Fall "),
                 !str_detect(Var, "SE"))
+
+ggplot2::ggplot() +
+  ggplot2::theme_bw() +
+  ggplot2::geom_point(data=smcopeprey, ggplot2::aes(x=Time, y=Value)) +
+  ggplot2::facet_grid(~factor(EPU, levels = c("MAB", "GB", "GOM")))
 ```
 
 
@@ -738,5 +763,52 @@ foragefishprey <- ecodata::forage_index |>
   dplyr::filter(EPU %in% c("MAB", "GB", "GOM"),
                 str_detect(Var, "Fall "),
                 !str_detect(Var, "SE")) 
+
+ggplot2::ggplot() +
+  ggplot2::theme_bw() +
+  ggplot2::geom_point(data=foragefishprey, ggplot2::aes(x=Time, y=Value)) +
+  ggplot2::facet_grid(~factor(EPU, levels = c("MAB", "GB", "GOM")))
+```
+
+Are predator condition time series correlated with major prey?
+
+Highest risk might be significant decreasing prey correlated with decrease in or current poor condition?
+
+Black sea bass
+
+Macrobenthos predicts condition? 
+
+```{r}
+macrojoin <- macroprey |>
+  dplyr::select(Time, FallMacroB = Value, EPU)
+
+megajoin <- megaprey |>
+  dplyr::select(Time, FallMegaB = Value, EPU)
+
+
+bsbcondprey <- mafmccondall |>
+  dplyr::filter(Var == "Black sea bass") |>
+  dplyr::left_join(macrojoin) |>
+  dplyr::left_join(megajoin) |>
+  dplyr::mutate(scaleMacro = scale(FallMacroB,scale =T,center=T),
+                scaleMega = scale(FallMegaB,scale =T,center=T))
+
+ggplot2::ggplot() +
+  ggplot2::theme_bw() +
+  ggplot2::geom_point(data=bsbcondprey, ggplot2::aes(x=scaleMacro, y=scaleCond), color="blue") +
+  ggplot2::geom_smooth(data=bsbcondprey, ggplot2::aes(x=scaleMacro, y=scaleCond), method="lm", col="blue") +
+  ggplot2::facet_grid(~factor(EPU, levels = c("MAB", "GB", "GOM")))
+
+```
+
+Megabenthos predicts condition? No. Some weighted combination?
+
+```{r}
+
+ggplot2::ggplot() +
+  ggplot2::theme_bw() +
+  ggplot2::geom_point(data=bsbcondprey, ggplot2::aes(x=scaleMega, y=scaleCond), color="red") +
+  ggplot2::geom_smooth(data=bsbcondprey, ggplot2::aes(x=scaleMega, y=scaleCond), method="lm", col="red") +
+  ggplot2::facet_grid(~factor(EPU, levels = c("MAB", "GB", "GOM")))
 ```
 
