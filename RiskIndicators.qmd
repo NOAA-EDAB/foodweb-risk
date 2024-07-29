@@ -628,3 +628,115 @@ mortplot <- ggplot(MAFMCmodmort, aes("", propmort, fill=mafmcpred)) +
 mortplot
 
 ```
+Review fish condition trends
+
+Which are "good" in the last 5 years?
+
+Use ecodata fall condition as a starting point, ask for stock specific condition if available
+
+```{r, fig.width=10, fig.asp=2}
+mafmc_cond <- c("Atlantic mackerel",
+           "Black sea bass",
+           "Bluefish",
+           "Butterfish",
+           "Goosefish",
+           "Illex", #not in condition
+           "Loligo",  #not in condition
+           "Scup",
+           "Spiny dogfish",
+           "Summer flounder",
+           "Surf clam",  #not in condition
+           "Ocean quahog")  #not in condition
+           #"Clams", # Atlantic surfclam and ocean quahog not separate groups
+           #"Tilefish") # Blueline and golden tilefish not separate groups
+
+fix<- ecodata::condition |>
+     dplyr::group_by(EPU, Var) |>
+     dplyr::mutate(scaleCond = scale(Value,scale =T,center=T))
+
+   # finds quantiles
+   xs <- quantile(fix$scaleCond, seq(0,1, length.out = 6), na.rm = TRUE)
+   # labels quantiles
+   fix <- fix |>
+     dplyr::mutate(category = cut(scaleCond,
+                                  breaks = xs,
+                                  labels = c( "Poor Condition",
+                                              "Below Average",
+                                              "Neutral",
+                                              "Above Average",
+                                              "Good Condition"),
+                                  include.lowest = TRUE))
+  
+
+mafmccond5 <- fix |>
+  dplyr::filter(Var %in% mafmc_cond,
+                Time > max(Time, na.rm = T)-5) 
+
+condquants <- data.frame(ymin = xs[1:5],
+                         ymax = xs[2:6],
+                         category = sort(unique(fix$category))
+)
+
+vir <- viridis::viridis_pal()(5)
+
+mafmccondall <- fix |>
+  dplyr::filter(Var %in% mafmc_cond) 
+
+p <-   ggplot2::ggplot() +
+  ggplot2::theme_bw() +
+  ggplot2::geom_rect(data = condquants,
+                     aes(ymin = ymin, ymax = ymax, fill = category, xmin = -Inf, xmax = Inf),
+                     alpha = .3) +
+  ggplot2::scale_fill_manual(values=vir) +
+  ggplot2::geom_point(data= mafmccondall, ggplot2::aes(x=Time, y=scaleCond[,1])) +
+  #ggplot2::geom_hline(yintercept = xs[2:5]) +
+  #ggplot2::geom_line() +
+  ggplot2::facet_grid(Var~factor(EPU, levels = c("MAB", "GB", "GOM", "SS", "NA")), ) +
+  ggplot2::guides(fill = ggplot2::guide_legend(reverse = TRUE))
+
+p
+  
+  
+```
+
+Prey indicators
+
+Macrobenthos
+
+```{r}
+fallmacro <- readRDS(here::here("preyindices/fallmacrobenthosindex.rds"))
+
+macroprey <- fallmacro |>
+  dplyr::filter(EPU %in% c("MAB", "GB", "GOM"),
+                str_detect(Var, "Fall "),
+                !str_detect(Var, "SE")) 
+```
+
+
+Small copeopods
+
+```{r}
+fallsmcope <- readRDS(here::here("preyindices/fallsmcopepodALLindex.rds"))
+
+smcopeprey <- fallsmcope |>
+  dplyr::filter(EPU %in% c("MAB", "GB", "GOM"),
+                str_detect(Var, "Fall "),
+                !str_detect(Var, "SE"))
+```
+
+
+Forage fish
+
+```{r}
+
+#ecodata::plot_forage_index(report = "MidAtlantic")
+
+#ecodata::plot_forage_index(report = "NewEngland")
+
+
+foragefishprey <- ecodata::forage_index |>
+  dplyr::filter(EPU %in% c("MAB", "GB", "GOM"),
+                str_detect(Var, "Fall "),
+                !str_detect(Var, "SE")) 
+```
+
