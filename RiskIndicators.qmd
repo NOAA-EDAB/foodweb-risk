@@ -7,19 +7,22 @@ format:
 
 ```{r setup}
 #| echo: false  
+#| message: false
+#| warning: false
+
 library(tidyverse)
 library(Rpath)
 library(viridis)
 library(data.table)
 ```
 
-## Overview
+# Overview
 
 We want to develop indicators of prey availability and predation pressure for the Mid-Atlantic EAFM risk assessment. We will use the MAB Rpath model by Brandon Beltz to characterize diet composition and predation mortality for fish species managed by the Mid Atlantic Fishery Management Council (MAFMC).
 
 The current ecological risk elements are outlined below.
 
-### Food web: Prey availability
+# Food web: Prey availability
 
 This element is applied at the species level.
 
@@ -57,39 +60,6 @@ tabl <- "
 cat(tabl) # output the table in a format good for HTML/PDF/docx conversion
 ```
 
-\newpage
-
-### Food web: Predation pressure
-
-This element is applied at the species level.
-
-Fish stocks and protected species stocks are managed using single species approaches, but fish and protected species stocks exist within a food web of predator and prey interactions. This element is one of two separating food web risks to achieving OY for Council managed species from two sources. This second food web risk element assesses predation pressure on each species, and the first element assesses prey availability for each species (see element above).
-
-Proposed definition:
-
-Risk of not achieving OY for Council managed species due to predation pressure.
-
-Indicators:
-
-Indicators of predation pressure on a Council managed species could be based on food habits information for predators of the species combined with key predator trends. This could be derived from empirical information or food web/multispecies models. Predators could include all species (protected, HMS, Council managed, other-managed, and unmanaged) or a subset as determined by the EOP and Council.
-
-Mortality plots for each species from Rpath? Compare with index of predation from [Richards, R.A., Jacobson, L.D., 2016. A simple predation pressure index for modeling changes in natural mortality: Application to Gulf of Maine northern shrimp stock assessment. Fisheries Research 179, 224–236. https://doi.org/10.1016/j.fishres.2016.03.003](https://www.sciencedirect.com/science/article/abs/pii/S0165783616300595)
-
-Ratio of Council managed predators to total predators (proportion of mortality)?
-
-Potential risk criteria:
-
-```{r riskfw11, echo=FALSE, message=FALSE, warnings=FALSE, results='asis'}
-tabl <- "
-| Risk Level         | Definition                                                          |  
-|:-------------------|:--------------------------------------------------------------------|
-| Low  | Predation pressure represents low proportion of overall mortality|
-| Low-Moderate | Predation pressure moderate proportion of overall mortality, decreasing mortality trend |
-| Moderate-High | Predation pressure moderate proportion of overall mortality, increasing mortality trend|
-| High | Predation pressure represents high proportion of overall mortality, increasing mortality trend |
-"
-cat(tabl) # output the table in a format good for HTML/PDF/docx conversion
-```
 
 \newpage
 
@@ -168,7 +138,9 @@ mafmc2 <- ecodata::species_groupings |>
 
 ```
 
-Visualize prey compositions (lots of aggregate groups)
+## Visualize prey compositions (lots of aggregate groups)
+
+These can be the basis for selecting aggregate prey indices.
 
 ```{r, fig.width=10, fig.asp=1}
 
@@ -204,6 +176,508 @@ dietplot <- ggplot(MAFMCmoddiet, aes("", Propdiet, fill=mafmcprey)) +
 
 dietplot
 
+```
+
+## Review fish condition trends
+
+Which are "good" in the last 5 years?
+
+Use ecodata fall condition as a starting point, ask for stock specific condition if available
+
+```{r, fig.width=10, fig.asp=2}
+mafmc_cond <- c("Atlantic mackerel",
+           "Black sea bass",
+           "Bluefish",
+           "Butterfish",
+           "Goosefish",
+           "Illex", #not in condition
+           "Loligo",  #not in condition
+           "Scup",
+           "Spiny dogfish",
+           "Summer flounder",
+           "Surf clam",  #not in condition
+           "Ocean quahog")  #not in condition
+           #"Clams", # Atlantic surfclam and ocean quahog not separate groups
+           #"Tilefish") # Blueline and golden tilefish not separate groups
+
+fix<- ecodata::condition |>
+     dplyr::group_by(EPU, Var) |>
+     dplyr::mutate(scaleCond = scale(Value,scale =T,center=T))
+
+   # finds quantiles
+   xs <- quantile(fix$scaleCond, seq(0,1, length.out = 6), na.rm = TRUE)
+   # labels quantiles
+   fix <- fix |>
+     dplyr::mutate(category = cut(scaleCond,
+                                  breaks = xs,
+                                  labels = c( "Poor Condition",
+                                              "Below Average",
+                                              "Neutral",
+                                              "Above Average",
+                                              "Good Condition"),
+                                  include.lowest = TRUE))
+  
+
+mafmccond5 <- fix |>
+  dplyr::filter(Var %in% mafmc_cond,
+                Time > max(Time, na.rm = T)-5) 
+
+condquants <- data.frame(ymin = xs[1:5],
+                         ymax = xs[2:6],
+                         category = sort(unique(fix$category))
+)
+
+vir <- viridis::viridis_pal()(5)
+
+mafmccondall <- fix |>
+  dplyr::filter(Var %in% mafmc_cond) 
+
+p <-   ggplot2::ggplot() +
+  ggplot2::theme_bw() +
+  ggplot2::geom_rect(data = condquants,
+                     aes(ymin = ymin, ymax = ymax, fill = category, xmin = -Inf, xmax = Inf),
+                     alpha = .3) +
+  ggplot2::scale_fill_manual(values=vir) +
+  ggplot2::geom_point(data= mafmccondall, ggplot2::aes(x=Time, y=scaleCond[,1])) +
+  #ggplot2::geom_hline(yintercept = xs[2:5]) +
+  #ggplot2::geom_line() +
+  ggplot2::facet_grid(Var~factor(EPU, levels = c("MAB", "GB", "GOM", "SS", "NA")), ) +
+  ggplot2::guides(fill = ggplot2::guide_legend(reverse = TRUE))
+
+p
+  
+  
+```
+
+## Prey indicators
+
+Macrobenthos (fall)
+
+```{r}
+fallmacro <- readRDS(here::here("preyindices/fallmacrobenthosindex.rds"))
+
+macroprey <- fallmacro |>
+  dplyr::filter(EPU %in% c("MAB", "GB", "GOM"),
+                str_detect(Var, "Fall "),
+                !str_detect(Var, "SE")) 
+
+ggplot2::ggplot() +
+  ggplot2::theme_bw() +
+  ggplot2::geom_point(data=macroprey, ggplot2::aes(x=Time, y=Value)) +
+  ggplot2::facet_grid(~factor(EPU, levels = c("MAB", "GB", "GOM")))
+```
+
+Megabenthos (fall)
+
+```{r}
+fallmega <- readRDS(here::here("preyindices/fallmegabenthosindex.rds"))
+
+megaprey <- fallmega |>
+  dplyr::filter(EPU %in% c("MAB", "GB", "GOM"),
+                str_detect(Var, "Fall "),
+                !str_detect(Var, "SE")) 
+
+ggplot2::ggplot() +
+  ggplot2::theme_bw() +
+  ggplot2::geom_point(data=megaprey, ggplot2::aes(x=Time, y=Value)) +
+  ggplot2::facet_grid(~factor(EPU, levels = c("MAB", "GB", "GOM")))
+```
+
+Small copeopods (fall)
+
+```{r}
+fallsmcope <- readRDS(here::here("preyindices/fallsmcopepodALLindex.rds"))
+
+smcopeprey <- fallsmcope |>
+  dplyr::filter(EPU %in% c("MAB", "GB", "GOM"),
+                str_detect(Var, "Fall "),
+                !str_detect(Var, "SE"))
+
+ggplot2::ggplot() +
+  ggplot2::theme_bw() +
+  ggplot2::geom_point(data=smcopeprey, ggplot2::aes(x=Time, y=Value)) +
+  ggplot2::facet_grid(~factor(EPU, levels = c("MAB", "GB", "GOM")))
+```
+
+
+Forage fish (fall)
+
+```{r}
+
+#ecodata::plot_forage_index(report = "MidAtlantic")
+
+#ecodata::plot_forage_index(report = "NewEngland")
+
+
+foragefishprey <- ecodata::forage_index |>
+  dplyr::filter(EPU %in% c("MAB", "GB", "GOM"),
+                str_detect(Var, "Fall "),
+                !str_detect(Var, "SE")) 
+
+ggplot2::ggplot() +
+  ggplot2::theme_bw() +
+  ggplot2::geom_point(data=foragefishprey, ggplot2::aes(x=Time, y=Value)) +
+  ggplot2::facet_grid(~factor(EPU, levels = c("MAB", "GB", "GOM")))
+```
+
+
+## Combine condition and prey index indicators
+
+Are predator condition time series correlated with major prey?
+
+Highest risk might be significant decreasing prey correlated with decrease in or current poor condition?
+
+Lets look at a benthivore, a planktivore, and a piscivore as examples. 
+
+### Black sea bass
+
+Macrobenthos correlated with condition? Yes in the Mid. Both are declining recently. Not significant in GOM. 
+
+```{r}
+macrojoin <- macroprey |>
+  dplyr::select(Time, FallMacroB = Value, EPU)
+
+megajoin <- megaprey |>
+  dplyr::select(Time, FallMegaB = Value, EPU)
+
+
+bsbcondprey <- mafmccondall |>
+  dplyr::filter(Var == "Black sea bass") |>
+  dplyr::left_join(macrojoin) |>
+  dplyr::left_join(megajoin) |>
+  dplyr::mutate(scaleMacro = scale(FallMacroB,scale =T,center=T),
+                scaleMega = scale(FallMegaB,scale =T,center=T))
+
+ggplot2::ggplot(data=bsbcondprey, ggplot2::aes(x=scaleMacro, y=scaleCond), color="blue") +
+  ggplot2::theme_bw() +
+  ggplot2::geom_point() +
+  #ggplot2::geom_smooth(data=bsbcondprey, ggplot2::aes(x=scaleMacro, y=scaleCond), method="lm", col="blue") +
+  ggplot2::geom_abline(intercept = 0, slope = 1, lty=3) +
+  ggplot2::geom_smooth(method=lm) +
+  ggpubr::stat_cor(method="pearson", label.x = 0, label.y = -2) +
+  ggplot2::facet_grid(~factor(EPU, levels = c("MAB", "GB", "GOM")))
+
+```
+
+Megabenthos correlated with condition? No, these are not significantly correlated.
+
+```{r}
+
+ggplot2::ggplot(data=bsbcondprey, ggplot2::aes(x=scaleMega, y=scaleCond), color="red") +
+  ggplot2::theme_bw() +
+  ggplot2::geom_point() +
+  #ggplot2::geom_smooth(data=bsbcondprey, ggplot2::aes(x=scaleMega, y=scaleCond), method="lm", col="red") +
+  ggplot2::geom_abline(intercept = 0, slope = 1, lty=3) +
+  ggplot2::geom_smooth(method=lm) +
+  ggpubr::stat_cor(method="pearson", label.x = 0, label.y = -2) +
+  ggplot2::facet_grid(~factor(EPU, levels = c("MAB", "GB", "GOM")))
+```
+
+Black sea bass condition and macrobenthos in MAB as time series:
+
+```{r}
+ggplot2::ggplot(data=bsbcondprey, ggplot2::aes(x=Time, y=scaleCond)) +
+  ggplot2::theme_bw() +
+  ggplot2::geom_point() +
+  ggplot2::geom_line() +
+  ggplot2::geom_point(data=bsbcondprey, ggplot2::aes(x=Time, y=scaleMacro), col="blue") +
+  ggplot2::geom_line(data=bsbcondprey, ggplot2::aes(x=Time, y=scaleMacro), col="blue") +
+  ggplot2::facet_grid(~factor(EPU, levels = c("MAB", "GB", "GOM")))
+```
+
+```{r}
+bsbcondall <- fix |>
+  dplyr::filter(Var %in% c("Black sea bass"),
+                EPU %in% c("MAB")) 
+
+p <-   ggplot2::ggplot() +
+  ggplot2::theme_bw() +
+  ggplot2::geom_rect(data = condquants,
+                     aes(ymin = ymin, ymax = ymax, fill = category, xmin = -Inf, xmax = Inf),
+                     alpha = .3) +
+  ggplot2::scale_fill_manual(values=vir) +
+  ggplot2::geom_point(data= bsbcondall, ggplot2::aes(x=Time, y=scaleCond[,1])) +
+  #ggplot2::geom_hline(yintercept = xs[2:5]) +
+  #ggplot2::geom_line() +
+  ggplot2::facet_grid(Var~factor(EPU, levels = c("MAB", "GB", "GOM", "SS", "NA")), ) +
+  ggplot2::ylab("Scaled condition") +
+  ggplot2::ggtitle("Black sea bass") +
+  ggplot2::guides(fill = ggplot2::guide_legend(reverse = TRUE))
+
+p
+  
+```
+
+```{r}
+fallmacro <- readRDS(here::here("preyindices/fallmacrobenthosindex.rds"))
+
+fixmacro<- fallmacro |>
+      dplyr::filter(Var %in% c("Fall Macrobenthos Biomass Index Estimate"),
+                    EPU %in% c("MAB")) |>
+      dplyr::group_by(EPU) |>
+      dplyr::summarise(max = max(Value))
+
+    p <- fallmacro |>
+      dplyr::filter(Var %in% c("Fall Macrobenthos Biomass Index Estimate",
+                               "Fall Macrobenthos Biomass Index Estimate SE"),
+                    EPU %in% c("MAB")) |>
+      dplyr::group_by(EPU) |>
+      tidyr::separate(Var, into = c("Season", "A", "B", "C", "D", "Var")) |>
+      dplyr::mutate(Var = tidyr::replace_na(Var, "Mean")) |> #,
+      #max = as.numeric(Value)) |>
+      tidyr::pivot_wider(names_from = Var, values_from = Value) |>
+      dplyr::left_join(fixmacro) |>
+      dplyr::mutate(#Value = Value/resca,
+        Mean = as.numeric(Mean),
+        #max = as.numeric(Value),
+        Mean = Mean/max,
+        SE = SE/max,
+        Upper = Mean + SE,
+        Lower = Mean - SE) |>
+      ggplot2::ggplot(ggplot2::aes(x = Time, y = Mean, group = Season))+
+      #ggplot2::annotate("rect", fill = setup$shade.fill, alpha = setup$shade.alpha,
+      #                  xmin = setup$x.shade.min , xmax = setup$x.shade.max,
+      #                  ymin = -Inf, ymax = Inf) +
+      ggplot2::geom_ribbon(ggplot2::aes(ymin = Lower, ymax = Upper, fill = Season), alpha = 0.5)+
+      ggplot2::geom_point()+
+      ggplot2::geom_line()+
+      ggplot2::ggtitle("Macrofauna prey")+
+      ggplot2::ylab(expression("Relative macrofauna biomass"))+
+      ggplot2::xlab(ggplot2::element_blank())+
+      ggplot2::facet_wrap(.~EPU)+
+      ecodata::geom_gls()+
+      ecodata::theme_ts()+
+      ecodata::theme_facet()+
+      ecodata::theme_title()
+    
+  p 
+  
+```
+
+What if we summed macrobenthos and megabenthos by EPU (indices are theoretically on the same scale of g/stomach). This would now account for the majority of BSB diet, ~75%. Doing this just weakens the correlation with macrobenthos alone. 
+
+```{r}
+p <- bsbcondprey |>
+  dplyr::mutate(FallTotBen = FallMacroB + FallMegaB,
+                scaleTotBen = scale(FallTotBen,scale =T,center=T)) |>
+  ggplot2::ggplot(ggplot2::aes(x=scaleTotBen, y=scaleCond), color="blue") +
+  ggplot2::theme_bw() +
+  ggplot2::geom_point() +
+  #ggplot2::geom_smooth(data=bsbcondprey, ggplot2::aes(x=scaleMacro, y=scaleCond), method="lm", col="blue") +
+  ggplot2::geom_abline(intercept = 0, slope = 1, lty=3) +
+  ggplot2::geom_smooth(method=lm) +
+  ggpubr::stat_cor(method="pearson", label.x = 0, label.y = -2) +
+  ggplot2::facet_grid(~factor(EPU, levels = c("MAB", "GB", "GOM")))
+  
+p  
+
+  
+```
+
+What about a zooplankton eater? 
+
+### Atlantic mackerel
+
+```{r}
+smcopejoin <- smcopeprey |>
+  dplyr::select(Time, FallSmCopeN = Value, EPU)
+
+mackcondprey <- mafmccondall |>
+  dplyr::filter(Var == "Atlantic mackerel",
+                !is.na(EPU)) |>
+  dplyr::left_join(macrojoin) |>
+  dplyr::left_join(smcopejoin) |>
+  dplyr::mutate(scaleMacro = scale(FallMacroB,scale =T,center=T),
+                scaleSmCope = scale(FallSmCopeN,scale =T,center=T))
+
+
+
+```
+
+Condition has been Above average (3), good or neutral (1 each) for the past 5 observations (MAB)
+
+```{r}
+mackcondmab <- fix |>
+  dplyr::filter(Var %in% c("Atlantic mackerel"),
+                EPU %in% c("MAB")) 
+
+mackcondall <- fix |>
+  dplyr::filter(Var %in% c("Atlantic mackerel")) 
+
+
+p <-   ggplot2::ggplot() +
+  ggplot2::theme_bw() +
+  ggplot2::geom_rect(data = condquants,
+                     aes(ymin = ymin, ymax = ymax, fill = category, xmin = -Inf, xmax = Inf),
+                     alpha = .3) +
+  ggplot2::scale_fill_manual(values=vir) +
+  ggplot2::geom_point(data= mackcondmab, ggplot2::aes(x=Time, y=scaleCond[,1])) +
+  #ggplot2::geom_hline(yintercept = xs[2:5]) +
+  #ggplot2::geom_line() +
+  ggplot2::facet_grid(Var~factor(EPU, levels = c("MAB", "GB", "GOM", "SS", "NA")), ) +
+  ggplot2::ylab("Scaled condition") +
+  ggplot2::ggtitle("Atlantic mackerel") +
+  ggplot2::guides(fill = ggplot2::guide_legend(reverse = TRUE))
+
+p
+```
+Recent condition differs across regions? Yes, GB has similar status to MAB, but GOM has below average, or poor for the most recent 5 observations. 
+
+```{r}
+p <-   ggplot2::ggplot() +
+  ggplot2::theme_bw() +
+  ggplot2::geom_rect(data = condquants,
+                     aes(ymin = ymin, ymax = ymax, fill = category, xmin = -Inf, xmax = Inf),
+                     alpha = .3) +
+  ggplot2::scale_fill_manual(values=vir) +
+  ggplot2::geom_point(data= mackcondall, ggplot2::aes(x=Time, y=scaleCond[,1])) +
+  #ggplot2::geom_hline(yintercept = xs[2:5]) +
+  #ggplot2::geom_line() +
+  ggplot2::facet_grid(Var~factor(EPU, levels = c("MAB", "GB", "GOM", "SS", "NA")), ) +
+  ggplot2::ylab("Scaled condition") +
+  ggplot2::ggtitle("Atlantic mackerel") +
+  ggplot2::guides(fill = ggplot2::guide_legend(reverse = TRUE))
+
+p
+```
+
+
+
+Small copeopods make up the largest proportion in food web model diets, but are uncorrelated with condition in any region:
+
+```{r}
+p <- mackcondprey |>
+  dplyr::filter(EPU != "SS") |>
+  ggplot2::ggplot(ggplot2::aes(x=scaleSmCope, y=scaleCond), color="blue") +
+  ggplot2::theme_bw() +
+  ggplot2::geom_point() +
+  #ggplot2::geom_smooth(data=bsbcondprey, ggplot2::aes(x=scaleMacro, y=scaleCond), method="lm", col="blue") +
+  ggplot2::geom_abline(intercept = 0, slope = 1, lty=3) +
+  ggplot2::geom_smooth(method=lm) +
+  ggpubr::stat_cor(method="pearson", label.x = -0.5, label.y = -2) +
+  ggplot2::facet_grid(~factor(EPU, levels = c("MAB", "GB", "GOM")))
+  
+p  
+```
+
+How about a piscivore?
+
+### Bluefish
+
+Condition in MAB has been good (4) or neutral (1) in the past 5 observations.
+
+```{r}
+foragejoin <- foragefishprey |>
+  dplyr::select(Time, FallForageB = Value, EPU)
+
+bluecondprey <- mafmccondall |>
+  dplyr::filter(Var == "Bluefish",
+                !is.na(EPU)) |>
+  dplyr::left_join(macrojoin) |>
+  dplyr::left_join(foragejoin) |>
+  dplyr::mutate(scaleMacro = scale(FallMacroB,scale =T,center=T),
+                scaleForage = scale(FallForageB,scale =T,center=T))
+
+bluecondmab <- fix |>
+  dplyr::filter(Var %in% c("Bluefish"),
+                EPU %in% c("MAB")) 
+
+bluecondall <- fix |>
+  dplyr::filter(Var %in% c("Bluefish")) 
+
+
+p <-   ggplot2::ggplot() +
+  ggplot2::theme_bw() +
+  ggplot2::geom_rect(data = condquants,
+                     aes(ymin = ymin, ymax = ymax, fill = category, xmin = -Inf, xmax = Inf),
+                     alpha = .3) +
+  ggplot2::scale_fill_manual(values=vir) +
+  ggplot2::geom_point(data= bluecondmab, ggplot2::aes(x=Time, y=scaleCond[,1])) +
+  #ggplot2::geom_hline(yintercept = xs[2:5]) +
+  #ggplot2::geom_line() +
+  ggplot2::facet_grid(Var~factor(EPU, levels = c("MAB", "GB", "GOM", "SS", "NA")), ) +
+  ggplot2::ylab("Scaled condition") +
+  ggplot2::ggtitle("Bluefish") +
+  ggplot2::guides(fill = ggplot2::guide_legend(reverse = TRUE))
+
+p
+```
+
+Observations of condition are only in GB outside the mid, and are less recent, but also good or above average for the most recent 5.
+
+```{r}
+p <-   ggplot2::ggplot() +
+  ggplot2::theme_bw() +
+  ggplot2::geom_rect(data = condquants,
+                     aes(ymin = ymin, ymax = ymax, fill = category, xmin = -Inf, xmax = Inf),
+                     alpha = .3) +
+  ggplot2::scale_fill_manual(values=vir) +
+  ggplot2::geom_point(data= bluecondall, ggplot2::aes(x=Time, y=scaleCond[,1])) +
+  #ggplot2::geom_hline(yintercept = xs[2:5]) +
+  #ggplot2::geom_line() +
+  ggplot2::facet_grid(Var~factor(EPU, levels = c("MAB", "GB", "GOM", "SS", "NA")), ) +
+  ggplot2::ylab("Scaled condition") +
+  ggplot2::ggtitle("Bluefish") +
+  ggplot2::guides(fill = ggplot2::guide_legend(reverse = TRUE))
+
+p
+```
+
+Correlation with forage fish index? Theoretically covering 60+% of diet? No.
+
+```{r}
+p <- bluecondprey |>
+  dplyr::filter(EPU != "SS") |>
+  ggplot2::ggplot(ggplot2::aes(x=scaleForage, y=scaleCond), color="blue") +
+  ggplot2::theme_bw() +
+  ggplot2::geom_point() +
+  #ggplot2::geom_smooth(data=bsbcondprey, ggplot2::aes(x=scaleMacro, y=scaleCond), method="lm", col="blue") +
+  ggplot2::geom_abline(intercept = 0, slope = 1, lty=3) +
+  ggplot2::geom_smooth(method=lm) +
+  ggpubr::stat_cor(method="pearson", label.x = -0.5, label.y = -2) +
+  ggplot2::facet_grid(~factor(EPU, levels = c("MAB", "GB", "GOM")))
+  
+p  
+```
+
+## Suggested risk criteria, prey availability
+
+This suggests that good condition is low risk, and being uncorrelated with your major prey trend is low risk.
+
+Conversely, poor condition indicates eleveted risk of prey availability, and higher risk if poor condition coincides with decreasing trends in major prey. If these are correlated that may be highest risk, indicating that the predator condition has a history of fluctuating with the prey index. 
+
+\newpage
+
+# Food web: Predation pressure
+
+This element is applied at the species level.
+
+Fish stocks and protected species stocks are managed using single species approaches, but fish and protected species stocks exist within a food web of predator and prey interactions. This element is one of two separating food web risks to achieving OY for Council managed species from two sources. This second food web risk element assesses predation pressure on each species, and the first element assesses prey availability for each species (see element above).
+
+Proposed definition:
+
+Risk of not achieving OY for Council managed species due to predation pressure.
+
+Indicators:
+
+Indicators of predation pressure on a Council managed species could be based on food habits information for predators of the species combined with key predator trends. This could be derived from empirical information or food web/multispecies models. Predators could include all species (protected, HMS, Council managed, other-managed, and unmanaged) or a subset as determined by the EOP and Council.
+
+Mortality plots for each species from Rpath? Compare with index of predation from [Richards, R.A., Jacobson, L.D., 2016. A simple predation pressure index for modeling changes in natural mortality: Application to Gulf of Maine northern shrimp stock assessment. Fisheries Research 179, 224–236. https://doi.org/10.1016/j.fishres.2016.03.003](https://www.sciencedirect.com/science/article/abs/pii/S0165783616300595)
+
+Ratio of Council managed predators to total predators (proportion of mortality)?
+
+Potential risk criteria:
+
+```{r riskfw11, echo=FALSE, message=FALSE, warnings=FALSE, results='asis'}
+tabl <- "
+| Risk Level         | Definition                                                          |  
+|:-------------------|:--------------------------------------------------------------------|
+| Low  | Predation pressure represents low proportion of overall mortality|
+| Low-Moderate | Predation pressure moderate proportion of overall mortality, decreasing mortality trend |
+| Moderate-High | Predation pressure moderate proportion of overall mortality, increasing mortality trend|
+| High | Predation pressure represents high proportion of overall mortality, increasing mortality trend |
+"
+cat(tabl) # output the table in a format good for HTML/PDF/docx conversion
 ```
 
 Visualize predation mortality compositions
@@ -627,275 +1101,5 @@ mortplot <- ggplot(MAFMCmodmort, aes("", propmort, fill=mafmcpred)) +
 
 mortplot
 
-```
-Review fish condition trends
-
-Which are "good" in the last 5 years?
-
-Use ecodata fall condition as a starting point, ask for stock specific condition if available
-
-```{r, fig.width=10, fig.asp=2}
-mafmc_cond <- c("Atlantic mackerel",
-           "Black sea bass",
-           "Bluefish",
-           "Butterfish",
-           "Goosefish",
-           "Illex", #not in condition
-           "Loligo",  #not in condition
-           "Scup",
-           "Spiny dogfish",
-           "Summer flounder",
-           "Surf clam",  #not in condition
-           "Ocean quahog")  #not in condition
-           #"Clams", # Atlantic surfclam and ocean quahog not separate groups
-           #"Tilefish") # Blueline and golden tilefish not separate groups
-
-fix<- ecodata::condition |>
-     dplyr::group_by(EPU, Var) |>
-     dplyr::mutate(scaleCond = scale(Value,scale =T,center=T))
-
-   # finds quantiles
-   xs <- quantile(fix$scaleCond, seq(0,1, length.out = 6), na.rm = TRUE)
-   # labels quantiles
-   fix <- fix |>
-     dplyr::mutate(category = cut(scaleCond,
-                                  breaks = xs,
-                                  labels = c( "Poor Condition",
-                                              "Below Average",
-                                              "Neutral",
-                                              "Above Average",
-                                              "Good Condition"),
-                                  include.lowest = TRUE))
-  
-
-mafmccond5 <- fix |>
-  dplyr::filter(Var %in% mafmc_cond,
-                Time > max(Time, na.rm = T)-5) 
-
-condquants <- data.frame(ymin = xs[1:5],
-                         ymax = xs[2:6],
-                         category = sort(unique(fix$category))
-)
-
-vir <- viridis::viridis_pal()(5)
-
-mafmccondall <- fix |>
-  dplyr::filter(Var %in% mafmc_cond) 
-
-p <-   ggplot2::ggplot() +
-  ggplot2::theme_bw() +
-  ggplot2::geom_rect(data = condquants,
-                     aes(ymin = ymin, ymax = ymax, fill = category, xmin = -Inf, xmax = Inf),
-                     alpha = .3) +
-  ggplot2::scale_fill_manual(values=vir) +
-  ggplot2::geom_point(data= mafmccondall, ggplot2::aes(x=Time, y=scaleCond[,1])) +
-  #ggplot2::geom_hline(yintercept = xs[2:5]) +
-  #ggplot2::geom_line() +
-  ggplot2::facet_grid(Var~factor(EPU, levels = c("MAB", "GB", "GOM", "SS", "NA")), ) +
-  ggplot2::guides(fill = ggplot2::guide_legend(reverse = TRUE))
-
-p
-  
-  
-```
-
-Prey indicators
-
-Macrobenthos (fall)
-
-```{r}
-fallmacro <- readRDS(here::here("preyindices/fallmacrobenthosindex.rds"))
-
-macroprey <- fallmacro |>
-  dplyr::filter(EPU %in% c("MAB", "GB", "GOM"),
-                str_detect(Var, "Fall "),
-                !str_detect(Var, "SE")) 
-
-ggplot2::ggplot() +
-  ggplot2::theme_bw() +
-  ggplot2::geom_point(data=macroprey, ggplot2::aes(x=Time, y=Value)) +
-  ggplot2::facet_grid(~factor(EPU, levels = c("MAB", "GB", "GOM")))
-```
-
-Megabenthos (fall)
-
-```{r}
-fallmega <- readRDS(here::here("preyindices/fallmegabenthosindex.rds"))
-
-megaprey <- fallmega |>
-  dplyr::filter(EPU %in% c("MAB", "GB", "GOM"),
-                str_detect(Var, "Fall "),
-                !str_detect(Var, "SE")) 
-
-ggplot2::ggplot() +
-  ggplot2::theme_bw() +
-  ggplot2::geom_point(data=megaprey, ggplot2::aes(x=Time, y=Value)) +
-  ggplot2::facet_grid(~factor(EPU, levels = c("MAB", "GB", "GOM")))
-```
-
-Small copeopods (fall)
-
-```{r}
-fallsmcope <- readRDS(here::here("preyindices/fallsmcopepodALLindex.rds"))
-
-smcopeprey <- fallsmcope |>
-  dplyr::filter(EPU %in% c("MAB", "GB", "GOM"),
-                str_detect(Var, "Fall "),
-                !str_detect(Var, "SE"))
-
-ggplot2::ggplot() +
-  ggplot2::theme_bw() +
-  ggplot2::geom_point(data=smcopeprey, ggplot2::aes(x=Time, y=Value)) +
-  ggplot2::facet_grid(~factor(EPU, levels = c("MAB", "GB", "GOM")))
-```
-
-
-Forage fish (fall)
-
-```{r}
-
-#ecodata::plot_forage_index(report = "MidAtlantic")
-
-#ecodata::plot_forage_index(report = "NewEngland")
-
-
-foragefishprey <- ecodata::forage_index |>
-  dplyr::filter(EPU %in% c("MAB", "GB", "GOM"),
-                str_detect(Var, "Fall "),
-                !str_detect(Var, "SE")) 
-
-ggplot2::ggplot() +
-  ggplot2::theme_bw() +
-  ggplot2::geom_point(data=foragefishprey, ggplot2::aes(x=Time, y=Value)) +
-  ggplot2::facet_grid(~factor(EPU, levels = c("MAB", "GB", "GOM")))
-```
-
-Are predator condition time series correlated with major prey?
-
-Highest risk might be significant decreasing prey correlated with decrease in or current poor condition?
-
-Black sea bass
-
-Macrobenthos correlated with condition? Yes in the Mid. Both are declining recently. Not significant in GOM. 
-
-```{r}
-macrojoin <- macroprey |>
-  dplyr::select(Time, FallMacroB = Value, EPU)
-
-megajoin <- megaprey |>
-  dplyr::select(Time, FallMegaB = Value, EPU)
-
-
-bsbcondprey <- mafmccondall |>
-  dplyr::filter(Var == "Black sea bass") |>
-  dplyr::left_join(macrojoin) |>
-  dplyr::left_join(megajoin) |>
-  dplyr::mutate(scaleMacro = scale(FallMacroB,scale =T,center=T),
-                scaleMega = scale(FallMegaB,scale =T,center=T))
-
-ggplot2::ggplot(data=bsbcondprey, ggplot2::aes(x=scaleMacro, y=scaleCond), color="blue") +
-  ggplot2::theme_bw() +
-  ggplot2::geom_point() +
-  #ggplot2::geom_smooth(data=bsbcondprey, ggplot2::aes(x=scaleMacro, y=scaleCond), method="lm", col="blue") +
-  ggplot2::geom_abline(intercept = 0, slope = 1, lty=3) +
-  ggplot2::geom_smooth(method=lm) +
-  ggpubr::stat_cor(method="pearson", label.x = 0, label.y = -2) +
-  ggplot2::facet_grid(~factor(EPU, levels = c("MAB", "GB", "GOM")))
-
-```
-
-Megabenthos correlated with condition? No, these are not significantly correlated.
-
-```{r}
-
-ggplot2::ggplot(data=bsbcondprey, ggplot2::aes(x=scaleMega, y=scaleCond), color="red") +
-  ggplot2::theme_bw() +
-  ggplot2::geom_point() +
-  #ggplot2::geom_smooth(data=bsbcondprey, ggplot2::aes(x=scaleMega, y=scaleCond), method="lm", col="red") +
-  ggplot2::geom_abline(intercept = 0, slope = 1, lty=3) +
-  ggplot2::geom_smooth(method=lm) +
-  ggpubr::stat_cor(method="pearson", label.x = 0, label.y = -2) +
-  ggplot2::facet_grid(~factor(EPU, levels = c("MAB", "GB", "GOM")))
-```
-
-Black sea bass condition and macrobenthos in MAB as time series:
-
-```{r}
-ggplot2::ggplot(data=bsbcondprey, ggplot2::aes(x=Time, y=scaleCond)) +
-  ggplot2::theme_bw() +
-  ggplot2::geom_point() +
-  ggplot2::geom_line() +
-  ggplot2::geom_point(data=bsbcondprey, ggplot2::aes(x=Time, y=scaleMacro), col="blue") +
-  ggplot2::geom_line(data=bsbcondprey, ggplot2::aes(x=Time, y=scaleMacro), col="blue") +
-  ggplot2::facet_grid(~factor(EPU, levels = c("MAB", "GB", "GOM")))
-```
-
-```{r}
-bsbcondall <- fix |>
-  dplyr::filter(Var %in% c("Black sea bass"),
-                EPU %in% c("MAB")) 
-
-p <-   ggplot2::ggplot() +
-  ggplot2::theme_bw() +
-  ggplot2::geom_rect(data = condquants,
-                     aes(ymin = ymin, ymax = ymax, fill = category, xmin = -Inf, xmax = Inf),
-                     alpha = .3) +
-  ggplot2::scale_fill_manual(values=vir) +
-  ggplot2::geom_point(data= bsbcondall, ggplot2::aes(x=Time, y=scaleCond[,1])) +
-  #ggplot2::geom_hline(yintercept = xs[2:5]) +
-  #ggplot2::geom_line() +
-  ggplot2::facet_grid(Var~factor(EPU, levels = c("MAB", "GB", "GOM", "SS", "NA")), ) +
-  ggplot2::ylab("Scaled condition") +
-  ggplot2::ggtitle("Black sea bass") +
-  ggplot2::guides(fill = ggplot2::guide_legend(reverse = TRUE))
-
-p
-  
-```
-
-```{r}
-fallmacro <- readRDS(here::here("preyindices/fallmacrobenthosindex.rds"))
-
-fix<- fallmacro |>
-      dplyr::filter(Var %in% c("Fall Macrobenthos Biomass Index Estimate"),
-                    EPU %in% c("MAB")) |>
-      dplyr::group_by(EPU) |>
-      dplyr::summarise(max = max(Value))
-
-    p <- fallmacro |>
-      dplyr::filter(Var %in% c("Fall Macrobenthos Biomass Index Estimate",
-                               "Fall Macrobenthos Biomass Index Estimate SE"),
-                    EPU %in% c("MAB")) |>
-      dplyr::group_by(EPU) |>
-      tidyr::separate(Var, into = c("Season", "A", "B", "C", "D", "Var")) |>
-      dplyr::mutate(Var = tidyr::replace_na(Var, "Mean")) |> #,
-      #max = as.numeric(Value)) |>
-      tidyr::pivot_wider(names_from = Var, values_from = Value) |>
-      dplyr::left_join(fix) |>
-      dplyr::mutate(#Value = Value/resca,
-        Mean = as.numeric(Mean),
-        #max = as.numeric(Value),
-        Mean = Mean/max,
-        SE = SE/max,
-        Upper = Mean + SE,
-        Lower = Mean - SE) |>
-      ggplot2::ggplot(ggplot2::aes(x = Time, y = Mean, group = Season))+
-      #ggplot2::annotate("rect", fill = setup$shade.fill, alpha = setup$shade.alpha,
-      #                  xmin = setup$x.shade.min , xmax = setup$x.shade.max,
-      #                  ymin = -Inf, ymax = Inf) +
-      ggplot2::geom_ribbon(ggplot2::aes(ymin = Lower, ymax = Upper, fill = Season), alpha = 0.5)+
-      ggplot2::geom_point()+
-      ggplot2::geom_line()+
-      ggplot2::ggtitle("Macrofauna prey")+
-      ggplot2::ylab(expression("Relative macrofauna biomass"))+
-      ggplot2::xlab(ggplot2::element_blank())+
-      ggplot2::facet_wrap(.~EPU)+
-      ecodata::geom_gls()+
-      ecodata::theme_ts()+
-      ecodata::theme_facet()+
-      ecodata::theme_title()
-    
-  p 
-  
 ```
 
