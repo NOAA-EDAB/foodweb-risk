@@ -701,7 +701,7 @@ p
 
 Prey indicators
 
-Macrobenthos
+Macrobenthos (fall)
 
 ```{r}
 fallmacro <- readRDS(here::here("preyindices/fallmacrobenthosindex.rds"))
@@ -717,7 +717,7 @@ ggplot2::ggplot() +
   ggplot2::facet_grid(~factor(EPU, levels = c("MAB", "GB", "GOM")))
 ```
 
-Megabenthos
+Megabenthos (fall)
 
 ```{r}
 fallmega <- readRDS(here::here("preyindices/fallmegabenthosindex.rds"))
@@ -733,7 +733,7 @@ ggplot2::ggplot() +
   ggplot2::facet_grid(~factor(EPU, levels = c("MAB", "GB", "GOM")))
 ```
 
-Small copeopods
+Small copeopods (fall)
 
 ```{r}
 fallsmcope <- readRDS(here::here("preyindices/fallsmcopepodALLindex.rds"))
@@ -750,7 +750,7 @@ ggplot2::ggplot() +
 ```
 
 
-Forage fish
+Forage fish (fall)
 
 ```{r}
 
@@ -776,7 +776,7 @@ Highest risk might be significant decreasing prey correlated with decrease in or
 
 Black sea bass
 
-Macrobenthos predicts condition? 
+Macrobenthos correlated with condition? Yes in the Mid. Both are declining recently. Not significant in GOM. 
 
 ```{r}
 macrojoin <- macroprey |>
@@ -793,22 +793,40 @@ bsbcondprey <- mafmccondall |>
   dplyr::mutate(scaleMacro = scale(FallMacroB,scale =T,center=T),
                 scaleMega = scale(FallMegaB,scale =T,center=T))
 
-ggplot2::ggplot() +
+ggplot2::ggplot(data=bsbcondprey, ggplot2::aes(x=scaleMacro, y=scaleCond), color="blue") +
   ggplot2::theme_bw() +
-  ggplot2::geom_point(data=bsbcondprey, ggplot2::aes(x=scaleMacro, y=scaleCond), color="blue") +
-  ggplot2::geom_smooth(data=bsbcondprey, ggplot2::aes(x=scaleMacro, y=scaleCond), method="lm", col="blue") +
+  ggplot2::geom_point() +
+  #ggplot2::geom_smooth(data=bsbcondprey, ggplot2::aes(x=scaleMacro, y=scaleCond), method="lm", col="blue") +
+  ggplot2::geom_abline(intercept = 0, slope = 1, lty=3) +
+  ggplot2::geom_smooth(method=lm) +
+  ggpubr::stat_cor(method="pearson", label.x = 0, label.y = -2) +
   ggplot2::facet_grid(~factor(EPU, levels = c("MAB", "GB", "GOM")))
 
 ```
 
-Megabenthos predicts condition? No. Some weighted combination?
+Megabenthos correlated with condition? No, these are not significantly correlated.
 
 ```{r}
 
-ggplot2::ggplot() +
+ggplot2::ggplot(data=bsbcondprey, ggplot2::aes(x=scaleMega, y=scaleCond), color="red") +
   ggplot2::theme_bw() +
-  ggplot2::geom_point(data=bsbcondprey, ggplot2::aes(x=scaleMega, y=scaleCond), color="red") +
-  ggplot2::geom_smooth(data=bsbcondprey, ggplot2::aes(x=scaleMega, y=scaleCond), method="lm", col="red") +
+  ggplot2::geom_point() +
+  #ggplot2::geom_smooth(data=bsbcondprey, ggplot2::aes(x=scaleMega, y=scaleCond), method="lm", col="red") +
+  ggplot2::geom_abline(intercept = 0, slope = 1, lty=3) +
+  ggplot2::geom_smooth(method=lm) +
+  ggpubr::stat_cor(method="pearson", label.x = 0, label.y = -2) +
+  ggplot2::facet_grid(~factor(EPU, levels = c("MAB", "GB", "GOM")))
+```
+
+Black sea bass condition and macrobenthos in MAB as time series:
+
+```{r}
+ggplot2::ggplot(data=bsbcondprey, ggplot2::aes(x=Time, y=scaleCond)) +
+  ggplot2::theme_bw() +
+  ggplot2::geom_point() +
+  ggplot2::geom_line() +
+  ggplot2::geom_point(data=bsbcondprey, ggplot2::aes(x=Time, y=scaleMacro), col="blue") +
+  ggplot2::geom_line(data=bsbcondprey, ggplot2::aes(x=Time, y=scaleMacro), col="blue") +
   ggplot2::facet_grid(~factor(EPU, levels = c("MAB", "GB", "GOM")))
 ```
 
