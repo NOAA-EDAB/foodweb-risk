@@ -249,6 +249,86 @@ p
   
 ```
 
+Updated condition dataset with survey strata based EPU definitions
+
+```{r, fig.width=10, fig.asp=2}
+AnnualRelCond2023_Fall <- readr::read_csv(here::here("condition/AnnualRelCond2023_Fall.csv"))
+
+survEPUcond <- AnnualRelCond2023_Fall |>
+  dplyr::select(Time = YEAR,
+                Var = Species,
+                EPU,
+                Value = MeanCond,
+                nCond) |>
+  dplyr::group_by(EPU, Var) |>
+  dplyr::mutate(scaleCond = scale(Value,scale =T,center=T)) |>
+  dplyr::mutate(category = cut(scaleCond,
+                                  breaks = xs,
+                                  labels = c( "Poor Condition",
+                                              "Below Average",
+                                              "Neutral",
+                                              "Above Average",
+                                              "Good Condition"),
+                                  include.lowest = TRUE))
+
+mafmcsurvEPUcond <- survEPUcond |>
+  dplyr::filter(Var %in% mafmc_cond)
+
+p <-   ggplot2::ggplot() +
+  ggplot2::theme_bw() +
+  ggplot2::geom_rect(data = condquants,
+                     aes(ymin = ymin, ymax = ymax, fill = category, xmin = -Inf, xmax = Inf),
+                     alpha = .3) +
+  ggplot2::scale_fill_manual(values=vir) +
+  ggplot2::geom_point(data= mafmcsurvEPUcond, ggplot2::aes(x=Time, y=scaleCond[,1])) +
+  #ggplot2::geom_hline(yintercept = xs[2:5]) +
+  #ggplot2::geom_line() +
+  ggplot2::facet_grid(Var~factor(EPU, levels = c("MAB", "GB", "GOM", "SS", "NA")), ) +
+  ggplot2::guides(fill = ggplot2::guide_legend(reverse = TRUE))
+
+p
+
+```
+Condition comparison?
+
+`ecodata::condition` missing EPU values
+
+```{r}
+ecodata::condition |> dplyr::filter(is.na(EPU)) |> dplyr::select(Var) |> dplyr::distinct()
+```
+Survey strata based EPU condition missing EPU values
+
+```{r}
+survEPUcond |> dplyr::filter(is.na(EPU)) |> dplyr::select(Var) |> dplyr::distinct()
+```
+
+
+```{r, fig.height=10, fig.asp=6}
+compfix <- fix |>
+  dplyr::rename(ecodataValue = Value,
+                ecodataScaleCond = scaleCond,
+                ecodataCategory = category)
+
+
+compcond <- survEPUcond |>
+  dplyr::left_join(compfix)
+
+p <-  compcond |>
+ggplot2::ggplot(ggplot2::aes(x=scaleCond, y=ecodataScaleCond), color="blue") +
+  ggplot2::theme_bw() +
+  ggplot2::geom_point() +
+  #ggplot2::geom_smooth(data=bsbcondprey, ggplot2::aes(x=scaleMacro, y=scaleCond), method="lm", col="blue") +
+  ggplot2::geom_abline(intercept = 0, slope = 1, lty=3) +
+  ggplot2::geom_smooth(method=lm) +
+  ggpubr::stat_cor(method="pearson", label.x = 0, label.y = -2) +
+  ggplot2::facet_grid(Var~factor(EPU, levels = c("MAB", "GB", "GOM", "SS", "NA")))
+
+p
+
+```
+
+
+
 ## Prey indicators
 
 Macrobenthos (fall)
