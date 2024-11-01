@@ -320,7 +320,7 @@ ggplot2::ggplot(ggplot2::aes(x=scaleCond, y=ecodataScaleCond), color="blue") +
   #ggplot2::geom_smooth(data=bsbcondprey, ggplot2::aes(x=scaleMacro, y=scaleCond), method="lm", col="blue") +
   ggplot2::geom_abline(intercept = 0, slope = 1, lty=3) +
   ggplot2::geom_smooth(method=lm) +
-  ggpubr::stat_cor(method="pearson", label.x = 0, label.y = -2) +
+  ggpubr::stat_cor(method="pearson", label.x = 0, label.y = -2, cex ) +
   ggplot2::facet_grid(Var~factor(EPU, levels = c("MAB", "GB", "GOM", "SS", "NA")))
 
 p
@@ -1180,6 +1180,25 @@ mortplot <- ggplot(MAFMCmodmort, aes("", propmort, fill=mafmcpred)) +
     facet_wrap(~Group)
 
 mortplot
+
+```
+
+Fake mortality proportions to illustrate risk levels
+
+```{r}
+
+mortprop <- data.frame(spp = c("fishA", "fishB", "fishC", "fishD"),
+                       Fishing = c(0.1, 0.3, 0.5, 0.7),
+                       Unknown = c(0.5, 0.1, 0.0, 0.2),
+                       Predation = c(0.4, 0.6, 0.5, 0.1)) |>
+  tidyr::pivot_longer(2:4, names_to = "Mortality", values_to = "Proportion")
+
+mortcomp <- ggplot2::ggplot(mortprop, ggplot2::aes("", Proportion, fill=Mortality )) +
+  ggplot2::geom_bar(width = 1, size = 1, stat = "identity") +
+  ggplot2::facet_wrap(~spp) +
+  ggplot2::theme_bw()
+
+mortcomp + scale_fill_brewer(palette="Paired")
 
 ```
 
